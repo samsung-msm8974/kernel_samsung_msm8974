@@ -150,22 +150,21 @@ SYSCALL_DEFINE3(old_readdir, unsigned int, fd,
 {
 	int error;
 	struct file * file;
+	int fput_needed;
 	struct readdir_callback buf = {
 		.ctx.actor = fillonedir,
 		.dirent = dirent
 	};
 
-	error = -EBADF;
-	file = fget(fd);
+	file = fget_light(fd, &fput_needed);
 	if (!file)
-		goto out;
+		return -EBADF;
 
 	error = iterate_dir(file, &buf.ctx);
 	if (buf.result)
 		error = buf.result;
 
-	fput(file);
-out:
+	fput_light(file, fput_needed);
 	return error;
 }
 
@@ -241,6 +240,7 @@ SYSCALL_DEFINE3(getdents, unsigned int, fd,
 {
 	struct file * file;
 	struct linux_dirent __user * lastdirent;
+	int fput_needed;
 	struct getdents_callback buf = {
 		.ctx.actor = filldir,
 		.count = count,
@@ -248,14 +248,12 @@ SYSCALL_DEFINE3(getdents, unsigned int, fd,
 	};
 	int error;
 
-	error = -EFAULT;
 	if (!access_ok(VERIFY_WRITE, dirent, count))
-		goto out;
+		return -EFAULT;
 
-	error = -EBADF;
-	file = fget(fd);
+	file = fget_light(fd, &fput_needed);
 	if (!file)
-		goto out;
+		return -EBADF;
 
 	error = iterate_dir(file, &buf.ctx);
 	if (error >= 0)
@@ -267,8 +265,7 @@ SYSCALL_DEFINE3(getdents, unsigned int, fd,
 		else
 			error = count - buf.count;
 	}
-	fput(file);
-out:
+	fput_light(file, fput_needed);
 	return error;
 }
 
@@ -327,6 +324,7 @@ SYSCALL_DEFINE3(getdents64, unsigned int, fd,
 {
 	struct file * file;
 	struct linux_dirent64 __user * lastdirent;
+	int fput_needed;
 	struct getdents_callback64 buf = {
 		.ctx.actor = filldir64,
 		.count = count,
@@ -334,14 +332,12 @@ SYSCALL_DEFINE3(getdents64, unsigned int, fd,
 	};
 	int error;
 
-	error = -EFAULT;
 	if (!access_ok(VERIFY_WRITE, dirent, count))
-		goto out;
+		return -EFAULT;
 
-	error = -EBADF;
-	file = fget(fd);
+	file = fget_light(fd, &fput_needed);
 	if (!file)
-		goto out;
+		return -EBADF;
 
 	error = iterate_dir(file, &buf.ctx);
 	if (error >= 0)
@@ -354,7 +350,6 @@ SYSCALL_DEFINE3(getdents64, unsigned int, fd,
 		else
 			error = count - buf.count;
 	}
-	fput(file);
-out:
+	fput_light(file, fput_needed);
 	return error;
 }
