@@ -52,6 +52,8 @@ static struct xfrm_policy_afinfo __rcu *xfrm_policy_afinfo[NPROTO]
 
 static struct kmem_cache *xfrm_dst_cache __read_mostly;
 
+static struct xfrm_policy_afinfo *xfrm_policy_get_afinfo(unsigned short family);
+static inline void xfrm_policy_put_afinfo(struct xfrm_policy_afinfo *afinfo);
 static void xfrm_init_pmtu(struct dst_entry *dst);
 static int stale_bundle(struct dst_entry *dst);
 static int xfrm_bundle_ok(struct xfrm_dst *xdst);
@@ -2698,7 +2700,7 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
 		return -EINVAL;
 	if (unlikely(afinfo->family >= NPROTO))
 		return -EAFNOSUPPORT;
-	spin_lock(&xfrm_policy_afinfo_lock);
+	spin_lock_bh(&xfrm_policy_afinfo_lock);
 	if (unlikely(xfrm_policy_afinfo[afinfo->family] != NULL))
 		err = -ENOBUFS;
 	else {
@@ -2721,7 +2723,7 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
 			afinfo->garbage_collect = xfrm_garbage_collect_deferred;
 		rcu_assign_pointer(xfrm_policy_afinfo[afinfo->family], afinfo);
 	}
-	spin_unlock(&xfrm_policy_afinfo_lock);
+	spin_unlock_bh(&xfrm_policy_afinfo_lock);
 
 	rtnl_lock();
 	for_each_net(net) {
@@ -2754,26 +2756,23 @@ int xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo)
 		return -EINVAL;
 	if (unlikely(afinfo->family >= NPROTO))
 		return -EAFNOSUPPORT;
-	spin_lock(&xfrm_policy_afinfo_lock);
+	spin_lock_bh(&xfrm_policy_afinfo_lock);
 	if (likely(xfrm_policy_afinfo[afinfo->family] != NULL)) {
 		if (unlikely(xfrm_policy_afinfo[afinfo->family] != afinfo))
 			err = -EINVAL;
-		else
-			RCU_INIT_POINTER(xfrm_policy_afinfo[afinfo->family],
-					 NULL);
+		else {
+			struct dst_ops *dst_ops = afinfo->dst_ops;
+			rcu_assign_pointer(xfrm_policy_afinfo[afinfo->family],
+									NULL);
+			dst_ops->kmem_cachep = NULL;
+			dst_ops->check = NULL;
+			dst_ops->negative_advice = NULL;
+			dst_ops->link_failure = NULL;
+			afinfo->garbage_collect = NULL;
+		}
 	}
-	spin_unlock(&xfrm_policy_afinfo_lock);
-	if (!err) {
-		struct dst_ops *dst_ops = afinfo->dst_ops;
-
-		synchronize_rcu();
-
-		dst_ops->kmem_cachep = NULL;
-		dst_ops->check = NULL;
-		dst_ops->negative_advice = NULL;
-		dst_ops->link_failure = NULL;
-		afinfo->garbage_collect = NULL;
-	}
+	spin_unlock_bh(&xfrm_policy_afinfo_lock);
+	synchronize_rcu();
 	return err;
 }
 EXPORT_SYMBOL(xfrm_policy_unregister_afinfo);
@@ -2782,7 +2781,7 @@ static void __net_init xfrm_dst_ops_init(struct net *net)
 {
 	struct xfrm_policy_afinfo *afinfo;
 
-	rcu_read_lock();
+	rcu_read_lock_bh();
 	afinfo = rcu_dereference(xfrm_policy_afinfo[AF_INET]);
 	if (afinfo)
 		net->xfrm.xfrm4_dst_ops = *afinfo->dst_ops;
@@ -2791,6 +2790,23 @@ static void __net_init xfrm_dst_ops_init(struct net *net)
 	if (afinfo)
 		net->xfrm.xfrm6_dst_ops = *afinfo->dst_ops;
 #endif
+	rcu_read_unlock_bh();
+}
+
+static struct xfrm_policy_afinfo *xfrm_policy_get_afinfo(unsigned short family)
+{
+	struct xfrm_policy_afinfo *afinfo;
+	if (unlikely(family >= NPROTO))
+		return NULL;
+	rcu_read_lock();
+	afinfo = rcu_dereference(xfrm_policy_afinfo[family]);
+	if (unlikely(!afinfo))
+		rcu_read_unlock();
+	return afinfo;
+}
+
+static inline void xfrm_policy_put_afinfo(struct xfrm_policy_afinfo *afinfo)
+{
 	rcu_read_unlock();
 }
 
