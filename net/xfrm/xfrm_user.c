@@ -790,6 +790,13 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
 
 	copy_to_user_state(x, p);
 
+	if (x->props.extra_flags) {
+		ret = nla_put_u32(skb, XFRMA_SA_EXTRA_FLAGS,
+				  x->props.extra_flags);
+		if (ret)
+			goto out;
+	}
+
 	if (x->coaddr) {
 		ret = nla_put(skb, XFRMA_COADDR, sizeof(*x->coaddr), x->coaddr);
 		if (ret)
