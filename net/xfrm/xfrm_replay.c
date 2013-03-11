@@ -359,12 +359,14 @@ static void xfrm_replay_notify_esn(struct xfrm_state *x, int event)
 		if (replay_esn->seq_hi == preplay_esn->seq_hi)
 			seq_diff = replay_esn->seq - preplay_esn->seq;
 		else
-			seq_diff = ~preplay_esn->seq + replay_esn->seq + 1;
+			seq_diff = UINT_MAX - preplay_esn->seq
+				   + replay_esn->seq;
 
 		if (replay_esn->oseq_hi == preplay_esn->oseq_hi)
 			oseq_diff = replay_esn->oseq - preplay_esn->oseq;
 		else
-			oseq_diff = ~preplay_esn->oseq + replay_esn->oseq + 1;
+			oseq_diff = UINT_MAX - preplay_esn->oseq
+				    + replay_esn->oseq;
 
 		if (seq_diff < x->replay_maxdiff &&
 		    oseq_diff < x->replay_maxdiff) {
