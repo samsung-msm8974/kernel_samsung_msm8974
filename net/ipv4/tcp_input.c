@@ -5480,8 +5480,8 @@ discard:
  *	the rest is checked inline. Fast processing is turned on in
  *	tcp_data_queue when everything is OK.
  */
-int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
-			const struct tcphdr *th, unsigned int len)
+void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+			 const struct tcphdr *th, unsigned int len)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 
@@ -5556,7 +5556,7 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 				tcp_ack(sk, skb, 0);
 				__kfree_skb(skb);
 				tcp_data_snd_check(sk);
-				return 0;
+				return;
 			} else { /* Header too small */
 				TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
 				goto discard;
@@ -5651,7 +5651,7 @@ no_ack:
 				__kfree_skb(skb);
 			else
 				sk->sk_data_ready(sk, 0);
-			return 0;
+			return;
 		}
 	}
 
@@ -5664,7 +5664,7 @@ slow_path:
 	 */
 
 	if (!tcp_validate_incoming(sk, skb, th, 1))
-		return 0;
+		return;
 
 step5:
 	if (th->ack &&
@@ -5681,14 +5681,13 @@ step5:
 
 	tcp_data_snd_check(sk);
 	tcp_ack_snd_check(sk);
-	return 0;
+	return;
 
 csum_error:
 	TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
 
 discard:
 	__kfree_skb(skb);
-	return 0;
 }
 EXPORT_SYMBOL(tcp_rcv_established);
 
