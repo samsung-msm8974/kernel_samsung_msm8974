@@ -1182,8 +1182,17 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	u8				endp;
 	struct usb_configuration *c;
 
-	if (w_length > USB_BUFSIZ)
-		return value;
+	if (w_length > USB_BUFSIZ) {
+		if (ctrl->bRequestType & USB_DIR_IN) {
+			/* Cast away the const, we are going to overwrite on purpose. */
+			__le16 *temp = (__le16 *)&ctrl->wLength;
+
+			*temp = cpu_to_le16(USB_BUFSIZ);
+			w_length = USB_BUFSIZ;
+		} else {
+			goto done;
+		}
+	}
 
 	/* partial re-init of the response message; the function or the
 	 * gadget might need to intercept e.g. a control-OUT completion
@@ -1447,7 +1456,8 @@ unknown:
 		 */
 		switch (ctrl->bRequestType & USB_RECIP_MASK) {
 		case USB_RECIP_INTERFACE:
-			if (!cdev->config || intf >= MAX_CONFIG_INTERFACES)
+			if (!cdev->config || intf >= MAX_CONFIG_INTERFACES ||
+			    !cdev->config->interface[intf])
 				break;
 			f = cdev->config->interface[intf];
 			break;
@@ -1606,7 +1616,7 @@ static int composite_bind(struct usb_gadget *gadget)
 	cdev->req = usb_ep_alloc_request(gadget->ep0, GFP_KERNEL);
 	if (!cdev->req)
 		goto fail;
-	cdev->req->buf = kmalloc(USB_BUFSIZ, GFP_KERNEL);
+	cdev->req->buf = kzalloc(USB_BUFSIZ, GFP_KERNEL);
 	if (!cdev->req->buf)
 		goto fail;
 	cdev->req->complete = composite_setup_complete;
