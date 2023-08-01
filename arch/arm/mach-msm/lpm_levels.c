@@ -309,6 +309,11 @@ static int lpm_system_mode_select(
 			system_level->num_cpu_votes != num_powered_cores)
 			continue;
 
+		if (system_level->sync
+				&& (num_online_cpus() > 1)
+				&& !sys_state.allow_synched_levels)
+			continue;
+
 		if (latency_us < pwr_param->latency_us && from_idle)
 			continue;
 
@@ -533,10 +538,6 @@ static noinline int lpm_cpu_power_select(struct cpuidle_device *dev, int *index)
 		uint32_t next_wakeup_us = sleep_us;
 		enum msm_pm_sleep_mode mode = level->mode;
 		bool allow;
-
-		if (level->sync && num_online_cpus() > 1
-				&& !sys_state.allow_synched_levels)
-			continue;
 
 		allow = msm_cpu_pm_check_mode(dev->cpu, mode, true);
 
