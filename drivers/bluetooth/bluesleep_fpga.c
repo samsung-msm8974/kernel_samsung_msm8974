@@ -251,7 +251,7 @@ void bluesleep_sleep_wakeup(void)
         clear_bit(BT_ASLEEP, &flags);
     }
     else {
-        BT_DBG("bluesleep_sleep_wakeup : already wake up, so start timer...");
+        /*BT_DBG("bluesleep_sleep_wakeup : already wake up, so start timer...");*/
         mod_timer(&tx_timer, jiffies + (msecs_to_jiffies(TX_TIMER_INTERVAL * 1000)));
     }
 }
@@ -292,7 +292,7 @@ static void bluesleep_tx_data_wakeup(void)
         clear_bit(BT_ASLEEP, &flags);
     }
     else {
-        BT_DBG("bluesleep_tx_data_wakeup : already wake up, so start timer...");
+        /*BT_DBG("bluesleep_tx_data_wakeup : already wake up, so start timer...");*/
         mod_timer(&tx_timer, jiffies + (msecs_to_jiffies(TX_TIMER_INTERVAL * 1000)));
     }
 }

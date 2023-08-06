@@ -2007,7 +2007,7 @@ static int sdhci_msm_vreg_disable(struct sdhci_msm_reg_data *vreg)
 	int ret = 0;
 
 	if (!vreg->reg) {
-		pr_err("%s: %s Cannot find Regulator\n", __func__, vreg->name);
+		/*pr_err("%s: %s Cannot find Regulator\n", __func__, vreg->name);*/
 		return ret;
 	}
 
