@@ -9,16 +9,6 @@
 #include <linux/ppp_defs.h>
 #include <net/flow_keys.h>
 
-/* copy saddr & daddr, possibly using 64bit load/store
- * Equivalent to :	flow->src = iph->saddr;
- *			flow->dst = iph->daddr;
- */
-static void iph_to_flow_copy_addrs(struct flow_keys *flow, const struct iphdr *iph)
-{
-	BUILD_BUG_ON(offsetof(typeof(*flow), dst) !=
-		     offsetof(typeof(*flow), src) + sizeof(flow->src));
-	memcpy(&flow->src, &iph->saddr, sizeof(flow->src) + sizeof(flow->dst));
-}
 
 bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow)
 {
@@ -44,7 +34,8 @@ ip:
 			ip_proto = 0;
 		else
 			ip_proto = iph->protocol;
-		iph_to_flow_copy_addrs(flow, iph);
+		flow->src = iph->saddr;
+		flow->dst = iph->daddr;
 		nhoff += iph->ihl * 4;
 		break;
 	}
