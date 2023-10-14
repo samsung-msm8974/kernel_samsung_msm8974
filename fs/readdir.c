@@ -39,6 +39,7 @@ int iterate_dir(struct file *file, struct dir_context *ctx)
 	if (!IS_DEADDIR(inode)) {
 		if (file->f_op->iterate) {
 			ctx->pos = file->f_pos;
+			ctx->romnt = (inode->i_sb->s_flags & MS_RDONLY);
 			res = file->f_op->iterate(file, ctx);
 			file->f_pos = ctx->pos;
 		} else {
@@ -149,16 +150,15 @@ SYSCALL_DEFINE3(old_readdir, unsigned int, fd,
 {
 	int error;
 	struct file * file;
-	struct readdir_callback buf;
+	struct readdir_callback buf = {
+		.ctx.actor = fillonedir,
+		.dirent = dirent
+	};
 
 	error = -EBADF;
 	file = fget(fd);
 	if (!file)
 		goto out;
-
-	buf.ctx.actor = fillonedir;
-	buf.result = 0;
-	buf.dirent = dirent;
 
 	error = iterate_dir(file, &buf.ctx);
 	if (buf.result)
@@ -241,7 +241,11 @@ SYSCALL_DEFINE3(getdents, unsigned int, fd,
 {
 	struct file * file;
 	struct linux_dirent __user * lastdirent;
-	struct getdents_callback buf;
+	struct getdents_callback buf = {
+		.ctx.actor = filldir,
+		.count = count,
+		.current_dir = dirent
+	};
 	int error;
 
 	error = -EFAULT;
@@ -252,12 +256,6 @@ SYSCALL_DEFINE3(getdents, unsigned int, fd,
 	file = fget(fd);
 	if (!file)
 		goto out;
-
-	buf.current_dir = dirent;
-	buf.previous = NULL;
-	buf.count = count;
-	buf.error = 0;
-	buf.ctx.actor = filldir;
 
 	error = iterate_dir(file, &buf.ctx);
 	if (error >= 0)
@@ -329,7 +327,11 @@ SYSCALL_DEFINE3(getdents64, unsigned int, fd,
 {
 	struct file * file;
 	struct linux_dirent64 __user * lastdirent;
-	struct getdents_callback64 buf;
+	struct getdents_callback64 buf = {
+		.ctx.actor = filldir64,
+		.count = count,
+		.current_dir = dirent
+	};
 	int error;
 
 	error = -EFAULT;
@@ -340,12 +342,6 @@ SYSCALL_DEFINE3(getdents64, unsigned int, fd,
 	file = fget(fd);
 	if (!file)
 		goto out;
-
-	buf.current_dir = dirent;
-	buf.previous = NULL;
-	buf.count = count;
-	buf.error = 0;
-	buf.ctx.actor = filldir64;
 
 	error = iterate_dir(file, &buf.ctx);
 	if (error >= 0)
